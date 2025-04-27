@@ -13,9 +13,16 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 ADMIN = os.getenv("ADMIN")
 
+
 ### проверка что токен найден
 if not TOKEN:
     exit(1)
+
+
+### логирование
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 ### инициальзация бота и диспетчера
 bot = Bot(token=TOKEN)
@@ -25,11 +32,6 @@ dp = Dispatcher()
 ### состояние памати
 class RegiterStates(StatesGroup):
     waiting_for_name = State()
-
-
-### логирование
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 ### клавиатура регистрации
@@ -46,6 +48,14 @@ async def cmd_start(message: types.Message):
 
 
 ### обработчик регистрации
+@dp.message(F.text == "Регистрация")
+async def register(message: types.Message, state: FSMContext):
+    logger.info(f"Пользователь {message.from_user.id} начал регистрацию")
+    await message.answer("Как тебя зовут?")
+    await state.set_state(RegiterStates.waiting_for_name)
+
+
+### обработчик получения имени
 @dp.message(RegiterStates.waiting_for_name)
 async def get_name(message: types.Message, state: FSMContext):
     user_name = message.text
