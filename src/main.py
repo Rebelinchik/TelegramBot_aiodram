@@ -73,19 +73,24 @@ class TelegramBot:
 
     # обработка добавления ссылки
     async def get_link(self, message: types.Message, state: FSMContext):
-        link = create_link_in_text(message.text)
-        try:
-            add_link_db(int(message.from_user.id), str(link))
-            logger.info(f"Пользователь {message.from_user.id} сохранил свое желание")
-            await message.answer(
-                f"Твоё желание сохранено, {message.from_user.username}"
-            )
+        if "http" in message.text:
+            link = create_link_in_text(message.text)
+            try:
+                add_link_db(int(message.from_user.id), str(link))
+                logger.info(f"Пользователь {message.from_user.id} сохранил свое желание")
+                await message.answer(
+                    f"Твоё желание сохранено, {message.from_user.username}"
+                )
+                await state.clear()
+            except Exception as e:
+                logger.error(
+                    f"ошибка при сохранении ссылки пользователя {message.from_user.id} в основном коде: {e}"
+                )
+                await message.answer("Что то пошло не так, попробуйте позже")
+        else:
+            logger.error(f"Пользователь {message.from_user.id} не отправил ссылку, ссылка не сохранена")
+            await message.reply("В этом сообщении нет ссылки на желание, твоё желание не сохранено")
             await state.clear()
-        except Exception as e:
-            logger.error(
-                f"ошибка при сохранении ссылки пользователя {message.from_user.id} в основном коде: {e}"
-            )
-            await message.answer("Что то пошло не так, попробуйте позже")
 
     # Не обрабатываемые сообщения
     async def other_text(self, message: types.Message):
