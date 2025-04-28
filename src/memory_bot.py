@@ -3,4 +3,5 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class MemoryBot(StatesGroup):
-    pass
+    waiting_link = State()
+
