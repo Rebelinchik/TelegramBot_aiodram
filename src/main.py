@@ -143,4 +143,4 @@ if __name__ == "__main__":
         bot = TelegramBot()
         asyncio.run(bot.run())
     except Exception as e:
-        print(e)
+        logger.error(e)
