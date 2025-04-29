@@ -35,6 +35,7 @@ class TelegramBot:
         self.dp.message.register(self.registration_on_db, F.text == "Регистрация")
         self.dp.message.register(self.link, F.text == "Добавить желание")
         self.dp.message.register(self.get_link, MemoryBot.waiting_link)
+        self.dp.message.register(self.show_list, F.text == "Список желаний")
         self.dp.message.register(self.other_text)
 
     ###Хендлеры
@@ -77,7 +78,9 @@ class TelegramBot:
             link = create_link_in_text(message.text)
             try:
                 add_link_db(int(message.from_user.id), str(link))
-                logger.info(f"Пользователь {message.from_user.id} сохранил свое желание")
+                logger.info(
+                    f"Пользователь {message.from_user.id} сохранил свое желание"
+                )
                 await message.answer(
                     f"Твоё желание сохранено, {message.from_user.username}"
                 )
@@ -88,9 +91,36 @@ class TelegramBot:
                 )
                 await message.answer("Что то пошло не так, попробуйте позже")
         else:
-            logger.error(f"Пользователь {message.from_user.id} не отправил ссылку, ссылка не сохранена")
-            await message.reply("В этом сообщении нет ссылки на желание, твоё желание не сохранено")
+            logger.error(
+                f"В сообщении пользователя {message.from_user.id} нет ссылки, ссылка не сохранена"
+            )
+            await message.reply(
+                "В этом сообщении нет ссылки на желание, твоё желание не сохранено"
+            )
             await state.clear()
+
+    # вывод списка желаний пользователя
+    async def show_list(self, message: types.Message):
+        try:
+            if not ischeck_user_in_db(message.from_user.id):
+                logger.info(
+                    f"Пользователя {message.from_user.id} нет в базе данных или его список желаний пуст"
+                )
+                await message.answer(
+                    "Скорей всего тебя нет в базе данных или ты ничего не добавил в список желаний"
+                )
+            else:
+                logger.info(
+                    f"Пользователь {message.from_user.id} запросил список желаний"
+                )
+                await message.answer("Вот твой список желаний:")
+                for link in upload_links(message, int(message.from_user.id)):
+                    await message.answer(link)
+                logger.info(
+                    f"Пользователь {message.from_user.id} запросил список желаний: список желаний выдан пользовтелю"
+                )
+        except Exception as e:
+            logger.error(f"При выгрузке ссылок в main произошла ошибка: {e}")
 
     # Не обрабатываемые сообщения
     async def other_text(self, message: types.Message):
