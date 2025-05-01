@@ -3,7 +3,6 @@ import os
 
 from dotenv import load_dotenv
 from logging_bot import logger
-from aiogram import types
 
 load_dotenv()
 db_path = os.getenv("SQLITE3_LINK")
@@ -38,14 +37,12 @@ def ischeck_link_in_db(user_id: int):
 
 ###Добавление user в БД
 def add_user_db(user_id: int, username: str):
-    links = ""
-    pair = ""
     try:
         with connect_db as conn:
             cur = conn.cursor()
             cur.execute(
                 "INSERT INTO users_data (user_id, username, links, pair) VALUES (?, ?, ?, ?)",
-                (user_id, username, links, pair),
+                (user_id, username, "", ""),
             )
             conn.commit()
     except Exception as e:
@@ -69,11 +66,42 @@ def add_link_db(user_id: int, link: str):
 
 
 ###Вывод списка желаний
-def upload_links(message: types.Message, user_id: int):
+def upload_links(user_id: int) -> list:
     try:
         with connect_db as conn:
             cur = conn.cursor()
             cur.execute("SELECT links FROM users_data WHERE user_id = ?", (user_id,))
             return cur.fetchone()[0].split()
     except Exception as e:
-        logger.error(f"При выгрузке ссылок в sql произошла ошибка: {e}")
+        logger.error(
+            f"У пользователя {user_id} при выгрузке ссылок в sql произошла ошибка: {e}"
+        )
+
+
+###удаление ссылок
+def del_link(user_id: int, text: list):
+    try:
+        with connect_db as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT links FROM users_data WHERE user_id = ?", (user_id,))
+            links_list = cur.fetchone()[0].split()
+            for i in sorted((int(x) for x in text), reverse=True):
+                count = int(i) - 1
+                del links_list[count]
+
+            if len(links_list) != 0:
+                links = "\n".join(links_list)
+                cur.execute(
+                    "UPDATE users_data SET links = ? WHERE user_id = ?",
+                    (links, user_id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE users_data SET links = ? WHERE user_id = ?",
+                    ("", user_id),
+                )
+            conn.commit()
+    except Exception as e:
+        logger.error(
+            f"У пользователя {user_id} при удалении ссылки произошла ошибка в sql: {e}"
+        )

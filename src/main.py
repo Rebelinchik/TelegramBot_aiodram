@@ -31,11 +31,25 @@ class TelegramBot:
         self.register_hundlers()
 
     def register_hundlers(self):
-        self.dp.message.register(self.start, Command("start"))
-        self.dp.message.register(self.registration_on_db, F.text == "Регистрация")
-        self.dp.message.register(self.link, F.text == "Добавить желание")
-        self.dp.message.register(self.get_link, MemoryBot.waiting_link)
-        self.dp.message.register(self.show_list, F.text == "Список желаний")
+        self.dp.message.register(self.start, Command("start"))  # старт
+        self.dp.message.register(
+            self.registration_on_db, F.text == "Регистрация"
+        )  # регистрация
+        self.dp.message.register(
+            self.link, F.text == "Добавить желание"
+        )  # добавление ссылки
+        self.dp.message.register(
+            self.get_link, MemoryBot.waiting_link
+        )  # ожидание пока введут ссылку
+        self.dp.message.register(
+            self.show_list, F.text == "Список желаний"
+        )  # вывод списка ссылко
+        self.dp.message.register(
+            self.delete_link, F.text == "Удалить желание"
+        )  # удаление ссылок
+        self.dp.message.register(
+            self.get_num_link, MemoryBot.waiting_del_link
+        )  # ожидание номеров ссылок
         self.dp.message.register(self.other_text)
 
     ###Хендлеры
@@ -111,16 +125,60 @@ class TelegramBot:
                 )
             else:
                 logger.info(
-                    f"Пользователь {message.from_user.id} запросил список желаний"
+                    f"Пользователь {message.from_user.id} запросил список желаний:"
                 )
                 await message.answer("Вот твой список желаний:")
-                for link in upload_links(message, int(message.from_user.id)):
-                    await message.answer(link)
+                count = 1
+                for link in upload_links(int(message.from_user.id)):
+                    num_link = str(count) + ") " + link
+                    await message.answer(num_link)
+                    count += 1
                 logger.info(
                     f"Пользователь {message.from_user.id} запросил список желаний: список желаний выдан пользовтелю"
                 )
         except Exception as e:
-            logger.error(f"При выгрузке ссылок в main произошла ошибка: {e}")
+            logger.error(
+                f"У пользователя {message.from_user.id} при выгрузке ссылок в main произошла ошибка: {e}"
+            )
+
+    # запуск удаления ссылки(запрос номеров ссылок)
+    async def delete_link(self, message: types.Message, state: FSMContext):
+        id = message.from_user.id
+        if ischeck_user_in_db(int(id)):
+            logger.info(f"Пользователь {id} начал удаление ссылок:")
+            await message.answer(
+                "Напиши через пробел в порядке возрастания, какие желания нужно удалить "
+            )
+            await state.set_state(MemoryBot.waiting_del_link)
+        else:
+            logger.error(f"Действие незарегистрированного пользователя {id}")
+            await message.answer("Для начала зарегистрируйся")
+
+    # ожидание номеров ссылок
+    async def get_num_link(self, message: types.Message, state: FSMContext):
+        id = message.from_user.id
+        text = message.text.split()
+        if any(map(lambda n: type(n) != int, text)):
+            try:
+                del_link(int(id), text)
+                await message.answer("Выбранные желания удалены, вот что осталось:")
+                count = 1
+                for link in upload_links(int(id)):
+                    num_link = str(count) + ") " + link
+                    await message.answer(num_link)
+                    count += 1
+                logger.info(f"Желания пользователя {id} удалены")
+                await state.clear()
+            except Exception as e:
+                logger.error(
+                    f"У пользователя {id} произошла ошибка при удалении ссылок"
+                )
+                await message.answer("Произошла ошибка, попробуй позже")
+                await state.clear()
+        else:
+            logger.info(f"Неудачная попытка удаления ссылок пользователя {id}")
+            await message.answer("В сообщении не только цифры, удаление не выполнено")
+            await state.clear()
 
     # Не обрабатываемые сообщения
     async def other_text(self, message: types.Message):
