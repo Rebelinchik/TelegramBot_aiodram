@@ -73,7 +73,9 @@ class TelegramBot:
                     f"{message.from_user.username}, вы зарегистированны в базе данных"
                 )
             else:
-                await message.answer("Вы уже зарегистрированы")
+                await message.answer(
+                    "Вы уже зарегистрированы", reply_markup=self.button
+                )
         except Exception as e:
             logger.error(f"Произошла ошибка при регистрации в главном файле: {e}")
 
@@ -81,10 +83,13 @@ class TelegramBot:
     async def link(self, message: types.Message, state: FSMContext):
         if ischeck_user_in_db(int(message.from_user.id)):
             logger.info(f"Пользователь {message.from_user.id} начал запись ссылки")
-            await message.answer("Хорошо, поделись со мной желанием с маркетплейса")
+            await message.answer(
+                "Хорошо, поделись со мной желанием с маркетплейса",
+                reply_markup=self.button,
+            )
             await state.set_state(MemoryBot.waiting_link)
         else:
-            await message.answer("Для начала зарегистрируйся")
+            await message.answer("Для начала зарегистрируйся", reply_markup=self.button)
 
     # обработка добавления ссылки
     async def get_link(self, message: types.Message, state: FSMContext):
@@ -96,20 +101,24 @@ class TelegramBot:
                     f"Пользователь {message.from_user.id} сохранил свое желание"
                 )
                 await message.answer(
-                    f"Твоё желание сохранено, {message.from_user.username}"
+                    f"Твоё желание сохранено, {message.from_user.username}",
+                    reply_markup=self.button,
                 )
                 await state.clear()
             except Exception as e:
                 logger.error(
                     f"ошибка при сохранении ссылки пользователя {message.from_user.id} в основном коде: {e}"
                 )
-                await message.answer("Что то пошло не так, попробуйте позже")
+                await message.answer(
+                    "Что то пошло не так, попробуйте позже", reply_markup=self.button
+                )
         else:
             logger.error(
                 f"В сообщении пользователя {message.from_user.id} нет ссылки, ссылка не сохранена"
             )
             await message.reply(
-                "В этом сообщении нет ссылки на желание, твоё желание не сохранено"
+                "В этом сообщении нет ссылки на желание, твоё желание не сохранено",
+                reply_markup=self.button,
             )
             await state.clear()
 
@@ -121,13 +130,16 @@ class TelegramBot:
                     f"Пользователя {message.from_user.id} нет в базе данных или его список желаний пуст"
                 )
                 await message.answer(
-                    "Скорей всего тебя нет в базе данных или ты ничего не добавил в список желаний"
+                    "Скорей всего тебя нет в базе данных или ты ничего не добавил в список желаний",
+                    reply_markup=self.button,
                 )
             else:
                 logger.info(
                     f"Пользователь {message.from_user.id} запросил список желаний:"
                 )
-                await message.answer("Вот твой список желаний:")
+                await message.answer(
+                    "Вот твой список желаний:", reply_markup=self.button
+                )
                 count = 1
                 for link in upload_links(int(message.from_user.id)):
                     num_link = str(count) + ") " + link
@@ -147,12 +159,13 @@ class TelegramBot:
         if ischeck_user_in_db(int(id)):
             logger.info(f"Пользователь {id} начал удаление ссылок:")
             await message.answer(
-                "Напиши через пробел в порядке возрастания, какие желания нужно удалить "
+                "Напиши через пробел в порядке возрастания, какие желания нужно удалить",
+                reply_markup=self.button,
             )
             await state.set_state(MemoryBot.waiting_del_link)
         else:
             logger.error(f"Действие незарегистрированного пользователя {id}")
-            await message.answer("Для начала зарегистрируйся")
+            await message.answer("Для начала зарегистрируйся", reply_markup=self.button)
 
     # ожидание номеров ссылок
     async def get_num_link(self, message: types.Message, state: FSMContext):
@@ -161,7 +174,10 @@ class TelegramBot:
         if any(map(lambda n: type(n) != int, text)):
             try:
                 del_link(int(id), text)
-                await message.answer("Выбранные желания удалены, вот что осталось:")
+                await message.answer(
+                    "Выбранные желания удалены, вот что осталось:",
+                    reply_markup=self.button,
+                )
                 count = 1
                 for link in upload_links(int(id)):
                     num_link = str(count) + ") " + link
@@ -173,11 +189,16 @@ class TelegramBot:
                 logger.error(
                     f"У пользователя {id} произошла ошибка при удалении ссылок"
                 )
-                await message.answer("Произошла ошибка, попробуй позже")
+                await message.answer(
+                    "Произошла ошибка, попробуй позже", reply_markup=self.button
+                )
                 await state.clear()
         else:
             logger.info(f"Неудачная попытка удаления ссылок пользователя {id}")
-            await message.answer("В сообщении не только цифры, удаление не выполнено")
+            await message.answer(
+                "В сообщении не только цифры, удаление не выполнено",
+                reply_markup=self.button,
+            )
             await state.clear()
 
     # Не обрабатываемые сообщения
@@ -185,9 +206,14 @@ class TelegramBot:
         logger.info(
             f"Пользователь {message.from_user.id} отправил необрабатываемое сообщение"
         )
-        await message.answer(f"Я обрабатываю только команды с вcтроенной клавиатуры")
+        await message.answer(
+            f"Я обрабатываю только команды с вcтроенной клавиатуры",
+            reply_markup=self.button,
+        )
         if message.text:
-            await message.answer(f"Твоё сообщение: {message.text}")
+            await message.answer(
+                f"Твоё сообщение: {message.text}", reply_markup=self.button
+            )
 
     ###Запуск бота
     async def run(self):
