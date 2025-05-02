@@ -35,6 +35,19 @@ def ischeck_link_in_db(user_id: int):
         logger.error(f"Ошибка при проверке наличия пользователя в базе данных: {e}")
 
 
+###Проверка пользователя по username для добавления пары
+def ischeck_username_in_db(username: str):
+    try:
+        with connect_db as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT COUNT(*) FROM users_data WHERE username = ?", (username,)
+            )
+            return cur.fetchone()[0] > 0
+    except Exception as e:
+        logger.error(f"Ошибка при проверке наличия username в базе данных: {e}")
+
+
 ###Добавление user в БД
 def add_user_db(user_id: int, username: str):
     try:
@@ -105,3 +118,26 @@ def del_link(user_id: int, text: list):
         logger.error(
             f"У пользователя {user_id} при удалении ссылки произошла ошибка в sql: {e}"
         )
+
+
+### добавление пары
+def add_pair(user_id: int, pair: str):
+    try:
+        with connect_db as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE users_data SET pair = ? WHERE user_id = ?", (pair, user_id)
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error(
+            f"У пользователя {user_id} произошла ошибка при добавлении пары: {e}"
+        )
+
+
+###Доставание user_id по username
+def user_id_in_username(username: str):
+    with connect_db as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT user_id FROM users_data WHERE username = ?", (username,))
+        return int(cur.fetchone()[0])

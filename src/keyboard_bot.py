@@ -4,6 +4,7 @@ keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="Регистрация"), KeyboardButton(text="Добавить желание")],
         [KeyboardButton(text="Список желаний"), KeyboardButton(text="Удалить желание")],
+        [KeyboardButton(text="Добавить сторую половинку")],
     ],
     resize_keyboard=True,
 )

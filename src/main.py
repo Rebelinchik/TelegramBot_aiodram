@@ -31,25 +31,17 @@ class TelegramBot:
         self.register_hundlers()
 
     def register_hundlers(self):
-        self.dp.message.register(self.start, Command("start"))  # старт
+        self.dp.message.register(self.start, Command("start"))
+        self.dp.message.register(self.registration_on_db, F.text == "Регистрация")
+        self.dp.message.register(self.link, F.text == "Добавить желание")
+        self.dp.message.register(self.get_link, MemoryBot.waiting_link)
+        self.dp.message.register(self.show_list, F.text == "Список желаний")
+        self.dp.message.register(self.delete_link, F.text == "Удалить желание")
+        self.dp.message.register(self.get_num_link, MemoryBot.waiting_del_link)
         self.dp.message.register(
-            self.registration_on_db, F.text == "Регистрация"
-        )  # регистрация
-        self.dp.message.register(
-            self.link, F.text == "Добавить желание"
-        )  # добавление ссылки
-        self.dp.message.register(
-            self.get_link, MemoryBot.waiting_link
-        )  # ожидание пока введут ссылку
-        self.dp.message.register(
-            self.show_list, F.text == "Список желаний"
-        )  # вывод списка ссылко
-        self.dp.message.register(
-            self.delete_link, F.text == "Удалить желание"
-        )  # удаление ссылок
-        self.dp.message.register(
-            self.get_num_link, MemoryBot.waiting_del_link
-        )  # ожидание номеров ссылок
+            self.add_user_pair, F.text == "Добавить сторую половинку"
+        )
+        self.dp.message.register(self.get_user_pair, MemoryBot.waiting_pair)
         self.dp.message.register(self.other_text)
 
     ###Хендлеры
@@ -160,7 +152,6 @@ class TelegramBot:
             logger.info(f"Пользователь {id} начал удаление ссылок:")
             await message.answer(
                 "Напиши через пробел в порядке возрастания, какие желания нужно удалить",
-                reply_markup=self.button,
             )
             await state.set_state(MemoryBot.waiting_del_link)
         else:
@@ -200,6 +191,54 @@ class TelegramBot:
                 reply_markup=self.button,
             )
             await state.clear()
+
+    # запуск добавления пары пользователя
+    async def add_user_pair(self, message: types.Message, state: FSMContext):
+        id = message.from_user.id
+        if ischeck_user_in_db(int(id)):
+            logger.info(f"Пользователь {id} начал добавление своей пары")
+            await message.answer(
+                "Отправь мне @никнейм совей творой половинки, она должна быть зарегистрирована в моей базе данных"
+            )
+            await state.set_state(MemoryBot.waiting_pair)
+        else:
+            logger.error(f"Действие незарегистрированного пользователя {id}")
+            await message.answer("Для начала зарегистрируйся", reply_markup=self.button)
+
+    # ожидание добавления имя пользователя
+    async def get_user_pair(self, message: types.Message, state: FSMContext):
+        text = message.text
+        id = message.from_user.id
+        name = message.from_user.username
+        if "@" in text:
+            username = text[1:]
+            if ischeck_username_in_db(username):
+                add_pair(id, username)
+                await self.bot.send_message(
+                    chat_id=user_id_in_username(username),
+                    text=f"Пользователь {name} синхронизировал ваши желания)",
+                )
+                await message.answer(
+                    f"Твоя вторая половинка {username} успешно привязана к твоему аккаунту"
+                )
+                await state.clear()
+                logger.info(
+                    f"Пользователь {id} завершил добавление пользователя успешно"
+                )
+            else:
+                await message.answer(
+                    f"Пользователя {username} нет в базе данных, попроси его что бы он зарегистрировался"
+                )
+                await state.clear()
+                logger.info(
+                    f"Пользователь {id} отправил несуществующего пользователя в БД. Добавление завершено"
+                )
+        else:
+            await message.answer("Ты не отправил имя пользователя")
+            await state.clear()
+            logger.info(
+                f"Пользователь {id} не отправил имя пользователя. Добавления перы завершено"
+            )
 
     # Не обрабатываемые сообщения
     async def other_text(self, message: types.Message):
