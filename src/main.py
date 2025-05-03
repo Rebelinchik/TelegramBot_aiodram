@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # свои модули
 from logging_bot import logger
 from memory_bot import FSMContext, MemoryBot
-from keyboard_bot import keyboard
+from keyboard_bot import keyboard, stop_link
 from sql import *
 from scripts import create_link_in_text
 
@@ -27,6 +27,7 @@ class TelegramBot:
         self.dp = Dispatcher()
         ###Клавиатура
         self.button = keyboard
+        self.stop_button = stop_link
         ###Регистрация всех хендлеров
         self.register_hundlers()
 
@@ -36,6 +37,7 @@ class TelegramBot:
         self.dp.message.register(self.link, F.text == "Добавить желание")
         self.dp.message.register(self.get_link, MemoryBot.waiting_link)
         self.dp.message.register(self.show_list, F.text == "Список желаний")
+        self.dp.message.register(self.show_list_pair, F.text == "Желания половинки")
         self.dp.message.register(self.delete_link, F.text == "Удалить желание")
         self.dp.message.register(self.get_num_link, MemoryBot.waiting_del_link)
         self.dp.message.register(
@@ -75,10 +77,10 @@ class TelegramBot:
     async def link(self, message: types.Message, state: FSMContext):
         id = message.from_user.id
         if ischeck_user_in_db(int(id)):
-            logger.info(f"Пользователь {id} начал запись ссылки")
+            logger.info(f"Пользователь {id} начал добавление желаний")
             await message.answer(
                 "Хорошо, поделись со мной желанием с маркетплейса",
-                reply_markup=self.button,
+                reply_markup=self.stop_button,
             )
             await state.set_state(MemoryBot.waiting_link)
         else:
@@ -97,9 +99,8 @@ class TelegramBot:
                 logger.info(f"Пользователь {id} сохранил свое желание")
                 await message.answer(
                     f"Твоё желание сохранено, {username}",
-                    reply_markup=self.button,
+                    reply_markup=self.stop_button,
                 )
-                await state.clear()
                 if ischeck_pair_on_user(id):
                     await self.bot.send_message(
                         chat_id=user_id_in_username(pair_in_user_id(id)),
@@ -110,17 +111,24 @@ class TelegramBot:
                     f"ошибка при сохранении ссылки пользователя {id} в основном коде: {e}"
                 )
                 await message.answer(
-                    "Что то пошло не так, попробуйте позже", reply_markup=self.button
+                    "Что то пошло не так, попробуйте позже",
+                    reply_markup=self.stop_button,
                 )
+        elif text == "Заокнчить добавление желаний":
+            logger.info(f"Пользователь {id} закончил добавление желаний")
+            await state.clear()
+            await message.answer(
+                "Добавление желаний закончено", reply_markup=self.button
+            )
+
         else:
             logger.error(
                 f"В сообщении пользователя {id} нет ссылки, ссылка не сохранена"
             )
             await message.reply(
                 "В этом сообщении нет ссылки на желание, твоё желание не сохранено",
-                reply_markup=self.button,
+                reply_markup=self.stop_button,
             )
-            await state.clear()
 
     # вывод списка желаний пользователя
     async def show_list(self, message: types.Message):
@@ -151,6 +159,34 @@ class TelegramBot:
             logger.error(
                 f"У пользователя {id} при выгрузке ссылок в main произошла ошибка: {e}"
             )
+
+    # Вывод списка желаний половинки
+    async def show_list_pair(self, message: types.Message):
+        id = message.from_user.id
+        if ischeck_pair_on_user(int(id)):
+            try:
+                if not ischeck_user_in_db(id):
+                    logger.info(
+                        f"Пользователя {id} нет в базе данных или его список желаний пуст"
+                    )
+                    await message.answer(
+                        "Скорей всего тебя нет в базе данных или ты ничего не добавил в список желаний",
+                        reply_markup=self.button,
+                    )
+                else:
+                    logger.info(
+                        f"Пользователь {id} запросил список желаний своей половинки"
+                    )
+                    await message.answer(
+                        "Вот список желаний твоей полловинки:", reply_markup=self.button
+                    )
+                    for link in upload_links(user_id_in_username(pair_in_user_id(id))):
+                        await message.answer(link)
+                    logger.info(f"Пользователь {id} получил список желаний половинки")
+            except Exception as e:
+                logger.error(
+                    f"У пользователя {id} при выгрузке ссылок в main произошла ошибка: {e}"
+                )
 
     # запуск удаления ссылки(запрос номеров ссылок)
     async def delete_link(self, message: types.Message, state: FSMContext):
