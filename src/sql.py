@@ -48,6 +48,44 @@ def ischeck_username_in_db(username: str):
         logger.error(f"Ошибка при проверке наличия username в базе данных: {e}")
 
 
+###Проверка наличия пары пользователя
+def ischeck_pair_on_user(user_id: int) -> bool:
+    try:
+        with connect_db as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT pair FROM users_data WHERE user_id = ?", (user_id,))
+            return len(cur.fetchone()[0]) > 0
+    except Exception as e:
+        logger.error(f"Ошибка при проверке наличия pair в базе данных: {e}")
+
+
+###Доставание user_id по username
+def user_id_in_username(username) -> int:
+    with connect_db as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT user_id FROM users_data WHERE username = ?", (username,))
+        return int(cur.fetchone()[0])
+
+
+###Доставание username по user_id
+def username_in_user_id(user_id: int) -> str:
+    with connect_db as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT username FROM users_data WHERE user_id = ?", (user_id,))
+        return str(cur.fetchone()[0])
+
+
+###Лоставание пары по user_id
+def pair_in_user_id(user_id: int) -> str:
+    with connect_db as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT pair FROM users_data WHERE user_id = ?",
+            (user_id,)
+        )
+        return str(cur.fetchone()[0])
+
+
 ###Добавление user в БД
 def add_user_db(user_id: int, username: str):
     try:
@@ -128,16 +166,12 @@ def add_pair(user_id: int, pair: str):
             cur.execute(
                 "UPDATE users_data SET pair = ? WHERE user_id = ?", (pair, user_id)
             )
+            cur.execute(
+                "UPDATE users_data SET pair = ? WHERE user_id = ?",
+                (username_in_user_id(user_id), user_id_in_username(pair)),
+            )
             conn.commit()
     except Exception as e:
         logger.error(
             f"У пользователя {user_id} произошла ошибка при добавлении пары: {e}"
         )
-
-
-###Доставание user_id по username
-def user_id_in_username(username: str):
-    with connect_db as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT user_id FROM users_data WHERE username = ?", (username,))
-        return int(cur.fetchone()[0])

@@ -39,7 +39,7 @@ class TelegramBot:
         self.dp.message.register(self.delete_link, F.text == "Удалить желание")
         self.dp.message.register(self.get_num_link, MemoryBot.waiting_del_link)
         self.dp.message.register(
-            self.add_user_pair, F.text == "Добавить сторую половинку"
+            self.add_user_pair, F.text == "Добавить вторую половинку"
         )
         self.dp.message.register(self.get_user_pair, MemoryBot.waiting_pair)
         self.dp.message.register(self.other_text)
@@ -47,23 +47,23 @@ class TelegramBot:
     ###Хендлеры
     # Старт
     async def start(self, message: types.Message):
-        logger.info(f"Пользователь {message.from_user.id} запустил бота через /start")
+        id = message.from_user.id
+        username = message.from_user.username
+        logger.info(f"Пользователь {id} запустил бота через /start")
         await message.answer(
-            f"Здравствуй {message.from_user.username}.\nПожалуйста зарегистрируйся",
+            f"Здравствуй {username}.\n Пожалуйста зарегистрируйся",
             reply_markup=self.button,
         )
 
     # регистрация в базе данных
     async def registration_on_db(self, message: types.Message):
+        id = message.from_user.id
+        username = message.from_user.username
         try:
-            if not ischeck_user_in_db(int(message.from_user.id)):
-                add_user_db(int(message.from_user.id), str(message.from_user.username))
-                logger.info(
-                    f"Пользователь {message.from_user.id} зарегистрирован в базе данных"
-                )
-                await message.answer(
-                    f"{message.from_user.username}, вы зарегистированны в базе данных"
-                )
+            if not ischeck_user_in_db(int(id)):
+                add_user_db(int(id), str(username))
+                logger.info(f"Пользователь {id} зарегистрирован в базе данных")
+                await message.answer(f"{username}, вы зарегистированны в базе данных")
             else:
                 await message.answer(
                     "Вы уже зарегистрированы", reply_markup=self.button
@@ -73,8 +73,9 @@ class TelegramBot:
 
     # Запуск добавления ссылки в строку пользователя в базе данных
     async def link(self, message: types.Message, state: FSMContext):
-        if ischeck_user_in_db(int(message.from_user.id)):
-            logger.info(f"Пользователь {message.from_user.id} начал запись ссылки")
+        id = message.from_user.id
+        if ischeck_user_in_db(int(id)):
+            logger.info(f"Пользователь {id} начал запись ссылки")
             await message.answer(
                 "Хорошо, поделись со мной желанием с маркетплейса",
                 reply_markup=self.button,
@@ -85,28 +86,35 @@ class TelegramBot:
 
     # обработка добавления ссылки
     async def get_link(self, message: types.Message, state: FSMContext):
-        if "http" in message.text:
-            link = create_link_in_text(message.text)
+        id = message.from_user.id
+        username = message.from_user.username
+        text = message.text
+
+        if "http" in text:
+            link = create_link_in_text(text)
             try:
-                add_link_db(int(message.from_user.id), str(link))
-                logger.info(
-                    f"Пользователь {message.from_user.id} сохранил свое желание"
-                )
+                add_link_db(int(id), str(link))
+                logger.info(f"Пользователь {id} сохранил свое желание")
                 await message.answer(
-                    f"Твоё желание сохранено, {message.from_user.username}",
+                    f"Твоё желание сохранено, {username}",
                     reply_markup=self.button,
                 )
                 await state.clear()
+                if ischeck_pair_on_user(id):
+                    await self.bot.send_message(
+                        chat_id=user_id_in_username(pair_in_user_id(id)),
+                        text="Твоя вторая половинка добавила новое желание",
+                    )
             except Exception as e:
                 logger.error(
-                    f"ошибка при сохранении ссылки пользователя {message.from_user.id} в основном коде: {e}"
+                    f"ошибка при сохранении ссылки пользователя {id} в основном коде: {e}"
                 )
                 await message.answer(
                     "Что то пошло не так, попробуйте позже", reply_markup=self.button
                 )
         else:
             logger.error(
-                f"В сообщении пользователя {message.from_user.id} нет ссылки, ссылка не сохранена"
+                f"В сообщении пользователя {id} нет ссылки, ссылка не сохранена"
             )
             await message.reply(
                 "В этом сообщении нет ссылки на желание, твоё желание не сохранено",
@@ -116,33 +124,32 @@ class TelegramBot:
 
     # вывод списка желаний пользователя
     async def show_list(self, message: types.Message):
+        id = message.from_user.id
         try:
-            if not ischeck_user_in_db(message.from_user.id):
+            if not ischeck_user_in_db(id):
                 logger.info(
-                    f"Пользователя {message.from_user.id} нет в базе данных или его список желаний пуст"
+                    f"Пользователя {id} нет в базе данных или его список желаний пуст"
                 )
                 await message.answer(
                     "Скорей всего тебя нет в базе данных или ты ничего не добавил в список желаний",
                     reply_markup=self.button,
                 )
             else:
-                logger.info(
-                    f"Пользователь {message.from_user.id} запросил список желаний:"
-                )
+                logger.info(f"Пользователь {id} запросил список желаний:")
                 await message.answer(
                     "Вот твой список желаний:", reply_markup=self.button
                 )
                 count = 1
-                for link in upload_links(int(message.from_user.id)):
+                for link in upload_links(int(id)):
                     num_link = str(count) + ") " + link
                     await message.answer(num_link)
                     count += 1
                 logger.info(
-                    f"Пользователь {message.from_user.id} запросил список желаний: список желаний выдан пользовтелю"
+                    f"Пользователь {id} запросил список желаний: список желаний выдан пользовтелю"
                 )
         except Exception as e:
             logger.error(
-                f"У пользователя {message.from_user.id} при выгрузке ссылок в main произошла ошибка: {e}"
+                f"У пользователя {id} при выгрузке ссылок в main произошла ошибка: {e}"
             )
 
     # запуск удаления ссылки(запрос номеров ссылок)
@@ -176,6 +183,11 @@ class TelegramBot:
                     count += 1
                 logger.info(f"Желания пользователя {id} удалены")
                 await state.clear()
+                if ischeck_pair_on_user(id):
+                    await self.bot.send_message(
+                        chat_id=user_id_in_username(pair_in_user_id(id)),
+                        text="Твоя вторая половинка удалила некоторые свои желания",
+                    )
             except Exception as e:
                 logger.error(
                     f"У пользователя {id} произошла ошибка при удалении ссылок"
@@ -198,7 +210,7 @@ class TelegramBot:
         if ischeck_user_in_db(int(id)):
             logger.info(f"Пользователь {id} начал добавление своей пары")
             await message.answer(
-                "Отправь мне @никнейм совей творой половинки, она должна быть зарегистрирована в моей базе данных"
+                "Отправь мне @никнейм совей творой половинки, она должна быть зарегистрирована в моей базе данных. Ты так же автоматически устанавливаешься парой у твоей половинки",
             )
             await state.set_state(MemoryBot.waiting_pair)
         else:
@@ -209,17 +221,17 @@ class TelegramBot:
     async def get_user_pair(self, message: types.Message, state: FSMContext):
         text = message.text
         id = message.from_user.id
-        name = message.from_user.username
+        username = message.from_user.username
         if "@" in text:
-            username = text[1:]
-            if ischeck_username_in_db(username):
-                add_pair(id, username)
+            name = text[1:]
+            if ischeck_username_in_db(name):
+                add_pair(id, name)
                 await self.bot.send_message(
-                    chat_id=user_id_in_username(username),
-                    text=f"Пользователь {name} синхронизировал ваши желания)",
+                    chat_id=user_id_in_username(name),
+                    text=f"Пользователь {username} синхронизировал ваши желания)",
                 )
                 await message.answer(
-                    f"Твоя вторая половинка {username} успешно привязана к твоему аккаунту"
+                    f"Твоя вторая половинка {name} успешно привязана к твоему аккаунту"
                 )
                 await state.clear()
                 logger.info(
@@ -227,7 +239,7 @@ class TelegramBot:
                 )
             else:
                 await message.answer(
-                    f"Пользователя {username} нет в базе данных, попроси его что бы он зарегистрировался"
+                    f"Пользователя {name} нет в базе данных, попроси его что бы он зарегистрировался"
                 )
                 await state.clear()
                 logger.info(
@@ -242,16 +254,17 @@ class TelegramBot:
 
     # Не обрабатываемые сообщения
     async def other_text(self, message: types.Message):
-        logger.info(
-            f"Пользователь {message.from_user.id} отправил необрабатываемое сообщение"
-        )
+        id = message.from_user.id
+        text = message.text
+        logger.info(f"Пользователь {id} отправил необрабатываемое сообщение")
         await message.answer(
             f"Я обрабатываю только команды с вcтроенной клавиатуры",
             reply_markup=self.button,
         )
-        if message.text:
+        if text:
             await message.answer(
-                f"Твоё сообщение: {message.text}", reply_markup=self.button
+                f"Твоё сообщение: {text}",
+                reply_markup=self.button,
             )
 
     ###Запуск бота
