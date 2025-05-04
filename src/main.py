@@ -12,7 +12,7 @@ from keyboard_bot import keyboard, stop_link
 from sql import *
 from scripts import create_link_in_text
 
-###ТОКЕН
+### ТОКЕН
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
@@ -20,7 +20,7 @@ if not TOKEN:
     exit(1)
 
 
-###КЛАСС БОТА
+### КЛАСС БОТА
 class TelegramBot:
     def __init__(self):
         self.bot = Bot(token=TOKEN)
@@ -46,7 +46,7 @@ class TelegramBot:
         self.dp.message.register(self.get_user_pair, MemoryBot.waiting_pair)
         self.dp.message.register(self.other_text)
 
-    ###Хендлеры
+    ### Хендлеры
     # Старт
     async def start(self, message: types.Message):
         id = message.from_user.id
@@ -65,7 +65,7 @@ class TelegramBot:
             if not ischeck_user_in_db(int(id)):
                 add_user_db(int(id), str(username))
                 logger.info(f"Пользователь {id} зарегистрирован в базе данных")
-                await message.answer(f"{username}, вы зарегистированны в базе данных")
+                await message.answer(f"{username}, вы зарегистрированны в базе данных")
             else:
                 await message.answer(
                     "Вы уже зарегистрированы", reply_markup=self.button
@@ -114,7 +114,7 @@ class TelegramBot:
                     "Что то пошло не так, попробуйте позже",
                     reply_markup=self.stop_button,
                 )
-        elif text == "Заокнчить добавление желаний":
+        elif text == "Закончить добавление желаний":
             logger.info(f"Пользователь {id} закончил добавление желаний")
             await state.clear()
             await message.answer(
@@ -153,7 +153,7 @@ class TelegramBot:
                     await message.answer(num_link)
                     count += 1
                 logger.info(
-                    f"Пользователь {id} запросил список желаний: список желаний выдан пользовтелю"
+                    f"Пользователь {id} запросил список желаний: список желаний выдан пользователю"
                 )
         except Exception as e:
             logger.error(
@@ -178,7 +178,7 @@ class TelegramBot:
                         f"Пользователь {id} запросил список желаний своей половинки"
                     )
                     await message.answer(
-                        "Вот список желаний твоей полловинки:", reply_markup=self.button
+                        "Вот список желаний твоей половинки:", reply_markup=self.button
                     )
                     for link in upload_links(user_id_in_username(pair_in_user_id(id))):
                         await message.answer(link)
@@ -246,7 +246,7 @@ class TelegramBot:
         if ischeck_user_in_db(int(id)):
             logger.info(f"Пользователь {id} начал добавление своей пары")
             await message.answer(
-                "Отправь мне @никнейм совей творой половинки, она должна быть зарегистрирована в моей базе данных. Ты так же автоматически устанавливаешься парой у твоей половинки",
+                "Отправь мне @никнейм своей второй половинки, она должна быть зарегистрирована в моей базе данных. Ты так же автоматически устанавливаешься парой у твоей половинки",
             )
             await state.set_state(MemoryBot.waiting_pair)
         else:
@@ -285,7 +285,7 @@ class TelegramBot:
             await message.answer("Ты не отправил имя пользователя")
             await state.clear()
             logger.info(
-                f"Пользователь {id} не отправил имя пользователя. Добавления перы завершено"
+                f"Пользователь {id} не отправил имя пользователя. Добавления пары завершено"
             )
 
     # Не обрабатываемые сообщения
@@ -309,7 +309,7 @@ class TelegramBot:
         await self.dp.start_polling(self.bot)
 
 
-###точка входа
+### точка входа
 if __name__ == "__main__":
     try:
         bot = TelegramBot()

@@ -10,7 +10,7 @@ keyboard = ReplyKeyboardMarkup(
 )
 
 stop_link = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="Заокнчить добавление желаний")]],
+    keyboard=[[KeyboardButton(text="Закончить добавление желаний")]],
     resize_keyboard=True,
     one_time_keyboard=True,
 )
