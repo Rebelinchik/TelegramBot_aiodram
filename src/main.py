@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from logging_bot import logger
 from memory_bot import FSMContext, MemoryBot
 from keyboard_bot import keyboard, stop_link
-from sql import *
+import sql
 from scripts import create_link_in_text
 
 ### ТОКЕН
@@ -62,8 +62,8 @@ class TelegramBot:
         id = message.from_user.id
         username = message.from_user.username
         try:
-            if not ischeck_user_in_db(int(id)):
-                add_user_db(int(id), str(username))
+            if not sql.ischeck_user_in_db(int(id)):
+                sql.add_user_db(int(id), str(username))
                 logger.info(f"Пользователь {id} зарегистрирован в базе данных")
                 await message.answer(f"{username}, вы зарегистрированны в базе данных")
             else:
@@ -76,7 +76,7 @@ class TelegramBot:
     # Запуск добавления ссылки в строку пользователя в базе данных
     async def link(self, message: types.Message, state: FSMContext):
         id = message.from_user.id
-        if ischeck_user_in_db(int(id)):
+        if sql.ischeck_user_in_db(int(id)):
             logger.info(f"Пользователь {id} начал добавление желаний")
             await message.answer(
                 "Хорошо, поделись со мной желанием с маркетплейса",
@@ -95,15 +95,15 @@ class TelegramBot:
         if "http" in text:
             link = create_link_in_text(text)
             try:
-                add_link_db(int(id), str(link))
+                sql.add_link_db(int(id), str(link))
                 logger.info(f"Пользователь {id} сохранил свое желание")
                 await message.answer(
                     f"Твоё желание сохранено, {username}",
                     reply_markup=self.stop_button,
                 )
-                if ischeck_pair_on_user(id):
+                if sql.ischeck_pair_on_user(id):
                     await self.bot.send_message(
-                        chat_id=user_id_in_username(pair_in_user_id(id)),
+                        chat_id=sql.user_id_in_username(sql.pair_in_user_id(id)),
                         text="Твоя вторая половинка добавила новое желание",
                     )
             except Exception as e:
@@ -134,7 +134,7 @@ class TelegramBot:
     async def show_list(self, message: types.Message):
         id = message.from_user.id
         try:
-            if not ischeck_user_in_db(id):
+            if not sql.ischeck_user_in_db(id):
                 logger.info(
                     f"Пользователя {id} нет в базе данных или его список желаний пуст"
                 )
@@ -148,7 +148,7 @@ class TelegramBot:
                     "Вот твой список желаний:", reply_markup=self.button
                 )
                 count = 1
-                for link in upload_links(int(id)):
+                for link in sql.upload_links(int(id)):
                     num_link = str(count) + ") " + link
                     await message.answer(num_link)
                     count += 1
@@ -163,9 +163,9 @@ class TelegramBot:
     # Вывод списка желаний половинки
     async def show_list_pair(self, message: types.Message):
         id = message.from_user.id
-        if ischeck_pair_on_user(int(id)):
+        if sql.ischeck_pair_on_user(int(id)):
             try:
-                if not ischeck_user_in_db(id):
+                if not sql.ischeck_user_in_db(id):
                     logger.info(
                         f"Пользователя {id} нет в базе данных или его список желаний пуст"
                     )
@@ -180,7 +180,9 @@ class TelegramBot:
                     await message.answer(
                         "Вот список желаний твоей половинки:", reply_markup=self.button
                     )
-                    for link in upload_links(user_id_in_username(pair_in_user_id(id))):
+                    for link in sql.upload_links(
+                        sql.user_id_in_username(sql.pair_in_user_id(id))
+                    ):
                         await message.answer(link)
                     logger.info(f"Пользователь {id} получил список желаний половинки")
             except Exception as e:
@@ -191,7 +193,7 @@ class TelegramBot:
     # запуск удаления ссылки(запрос номеров ссылок)
     async def delete_link(self, message: types.Message, state: FSMContext):
         id = message.from_user.id
-        if ischeck_user_in_db(int(id)):
+        if sql.ischeck_user_in_db(int(id)):
             logger.info(f"Пользователь {id} начал удаление ссылок:")
             await message.answer(
                 "Напиши через пробел в порядке возрастания, какие желания нужно удалить",
@@ -205,28 +207,28 @@ class TelegramBot:
     async def get_num_link(self, message: types.Message, state: FSMContext):
         id = message.from_user.id
         text = message.text.split()
-        if any(map(lambda n: type(n) != int, text)):
+        if any(map(lambda n: type(n) != int, text)):  # noqa: E721
             try:
-                del_link(int(id), text)
+                sql.del_link(int(id), text)
                 await message.answer(
                     "Выбранные желания удалены, вот что осталось:",
                     reply_markup=self.button,
                 )
                 count = 1
-                for link in upload_links(int(id)):
+                for link in sql.upload_links(int(id)):
                     num_link = str(count) + ") " + link
                     await message.answer(num_link)
                     count += 1
                 logger.info(f"Желания пользователя {id} удалены")
                 await state.clear()
-                if ischeck_pair_on_user(id):
+                if sql.ischeck_pair_on_user(id):
                     await self.bot.send_message(
-                        chat_id=user_id_in_username(pair_in_user_id(id)),
+                        chat_id=sql.user_id_in_username(sql.pair_in_user_id(id)),
                         text="Твоя вторая половинка удалила некоторые свои желания",
                     )
             except Exception as e:
                 logger.error(
-                    f"У пользователя {id} произошла ошибка при удалении ссылок"
+                    f"У пользователя {id} произошла ошибка при удалении ссылок: {e}"
                 )
                 await message.answer(
                     "Произошла ошибка, попробуй позже", reply_markup=self.button
@@ -243,7 +245,7 @@ class TelegramBot:
     # запуск добавления пары пользователя
     async def add_user_pair(self, message: types.Message, state: FSMContext):
         id = message.from_user.id
-        if ischeck_user_in_db(int(id)):
+        if sql.ischeck_user_in_db(int(id)):
             logger.info(f"Пользователь {id} начал добавление своей пары")
             await message.answer(
                 "Отправь мне @никнейм своей второй половинки, она должна быть зарегистрирована в моей базе данных. Ты так же автоматически устанавливаешься парой у твоей половинки",
@@ -260,10 +262,10 @@ class TelegramBot:
         username = message.from_user.username
         if "@" in text:
             name = text[1:]
-            if ischeck_username_in_db(name):
-                add_pair(id, name)
+            if sql.ischeck_username_in_db(name):
+                sql.add_pair(id, name)
                 await self.bot.send_message(
-                    chat_id=user_id_in_username(name),
+                    chat_id=sql.user_id_in_username(name),
                     text=f"Пользователь {username} синхронизировал ваши желания)",
                 )
                 await message.answer(
@@ -294,7 +296,7 @@ class TelegramBot:
         text = message.text
         logger.info(f"Пользователь {id} отправил необрабатываемое сообщение")
         await message.answer(
-            f"Я обрабатываю только команды с вcтроенной клавиатуры",
+            "Я обрабатываю только команды с вcтроенной клавиатуры",
             reply_markup=self.button,
         )
         if text:
